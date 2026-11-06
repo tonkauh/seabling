@@ -68,6 +68,8 @@ button {
 
 .map-transform-content {
   display: block;
+  backface-visibility: hidden;
+  will-change: transform;
 }
 
 .venue-map-art {
@@ -76,7 +78,7 @@ button {
   aspect-ratio: 1029 / 768;
   flex: 0 0 auto;
   overflow: hidden;
-  filter: drop-shadow(0 22px 40px rgba(49, 69, 47, 0.12));
+  box-shadow: 0 22px 40px rgba(49, 69, 47, 0.12);
 }
 
 .venue-map-art__image {
@@ -652,6 +654,11 @@ button {
 }
 
 @media (max-width: 760px) {
+  .map-pin__pulse {
+    animation: none;
+    opacity: 0;
+  }
+
   .map-brand {
     top: 12px;
     left: 12px;
