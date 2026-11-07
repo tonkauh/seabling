@@ -137,6 +137,31 @@ button {
   letter-spacing: 0.15em;
 }
 
+.map-studio-link {
+  position: absolute;
+  z-index: 3;
+  top: 28px;
+  right: 25px;
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 6px;
+  background: rgba(250, 249, 242, 0.88);
+  box-shadow: 0 7px 25px rgba(41, 58, 42, 0.1);
+  color: #405345;
+  font-size: 10px;
+  font-weight: 700;
+  text-decoration: none;
+  backdrop-filter: blur(14px);
+}
+
+.map-studio-link:hover {
+  background: #fffdf6;
+}
+
 .map-brand__divider {
   width: 1px;
   height: 24px;
@@ -675,6 +700,14 @@ button {
   .map-brand__divider,
   .map-brand__edition {
     display: none;
+  }
+
+  .map-studio-link {
+    top: 13px;
+    right: 12px;
+    min-height: 40px;
+    padding-inline: 10px;
+    font-size: 9px;
   }
 
   .map-caption {

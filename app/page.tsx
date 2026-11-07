@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import AseanMap from "@/components/AseanMap";
 import ZoneDrawer from "@/components/ZoneDrawer";
 import { venueZones } from "@/data/venueZones";
@@ -51,6 +52,10 @@ export default function Home() {
         <span className="map-brand__divider" aria-hidden="true" />
         <span className="map-brand__edition">FIVE CULTURAL STOPS</span>
       </header>
+
+      <Link className="map-studio-link" href="/model-viewer">
+        Open 3D studio <span aria-hidden="true">↗</span>
+      </Link>
 
       <div className="map-caption">
         <span className="map-caption__dot" />
