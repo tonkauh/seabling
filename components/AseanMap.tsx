@@ -1,12 +1,18 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react";
 import {
   TransformComponent,
   TransformWrapper,
 } from "react-zoom-pan-pinch";
-import type { VenueZone } from "@/data/venueZones";
+import {
+  venueMapTransform,
+  type VenueMapTransform,
+  type VenueZone,
+} from "@/data/venueZones";
 import MapControls from "@/components/MapControls";
+import MapTransformPanel from "@/components/MapTransformPanel";
 
 type AseanMapProps = {
   zones: VenueZone[];
@@ -62,6 +68,13 @@ export default function AseanMap({
   selectedZoneId,
   onZoneSelect,
 }: AseanMapProps) {
+  const [mapTransform, setMapTransform] =
+    useState<VenueMapTransform>(venueMapTransform);
+
+  function resetMapTransform() {
+    setMapTransform({ ...venueMapTransform });
+  }
+
   return (
     <section className="map-stage" aria-label="Interactive SEABLING venue map">
       <TransformWrapper
@@ -71,8 +84,11 @@ export default function AseanMap({
         centerOnInit
         limitToBounds
         disablePadding
-        wheel={{ step: 0.12 }}
-        panning={{ velocityDisabled: true, excluded: ["map-pin"] }}
+        wheel={{ step: 0.12, excluded: ["map-transform-panel"] }}
+        panning={{
+          velocityDisabled: true,
+          excluded: ["map-pin", "map-transform-panel"],
+        }}
         doubleClick={{ disabled: true }}
       >
         <TransformComponent
@@ -87,11 +103,20 @@ export default function AseanMap({
             display: "block",
           }}
         >
-          <div className="venue-map-art">
+          <div
+            className="venue-map-art"
+            style={{
+              transform: `translate(${mapTransform.offsetXPercent}%, ${mapTransform.offsetYPercent}%) scale(${mapTransform.scale}) rotate(${mapTransform.rotation}deg)`,
+              transformOrigin: "center center",
+              opacity: mapTransform.opacity,
+              zIndex: mapTransform.zIndex,
+            }}
+          >
             <Image
               src="/images/venue-map.svg"
               alt="Vector site plan of the SEABLING festival grounds, showing the central venue and surrounding areas"
-              fill
+              width={2400}
+              height={1792}
               priority
               unoptimized
               sizes="(max-width: 760px) 100vw, 134vh"
@@ -111,6 +136,11 @@ export default function AseanMap({
         </TransformComponent>
         <MapControls />
       </TransformWrapper>
+      <MapTransformPanel
+        value={mapTransform}
+        onChange={setMapTransform}
+        onReset={resetMapTransform}
+      />
     </section>
   );
 }

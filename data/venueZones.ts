@@ -2,6 +2,24 @@ import { aseanCountries, type AseanCountry, type Workshop } from "@/data/aseanDa
 
 type LabelPlacement = "left" | "right" | "top" | "bottom";
 
+export type VenueMapTransform = {
+  offsetXPercent: number;
+  offsetYPercent: number;
+  scale: number;
+  rotation: number;
+  opacity: number;
+  zIndex: number;
+};
+
+export const venueMapTransform: VenueMapTransform = {
+  offsetXPercent: 0,
+  offsetYPercent: 0,
+  scale: 1,
+  rotation: 0,
+  opacity: 1,
+  zIndex: 0,
+};
+
 export type VenueZone = {
   id: string;
   zoneName: string;

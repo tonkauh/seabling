@@ -6,7 +6,26 @@ and live position, rotation, and scale controls.
 
 The map uses the vector site plan at `public/images/venue-map.svg`. Replace that
 file to update the map artwork while keeping the existing zone markers and
-interactions.
+interactions. The collapsible **Map Editor** panel adjusts the artwork and
+markers together; use **Copy config** to copy a ready-to-paste
+`venueMapTransform` object from `data/venueZones.ts`.
+
+The map component owns and wires the transform panel:
+
+```tsx
+import AseanMap from "@/components/AseanMap";
+import { venueZones } from "@/data/venueZones";
+
+<AseanMap
+  zones={venueZones}
+  selectedZoneId={selectedZoneId}
+  onZoneSelect={setSelectedZoneId}
+/>;
+```
+
+SVG strokes use `vector-effect: non-scaling-stroke`, and the source viewBox
+matches its intrinsic `2400 × 1792` dimensions so the browser can render the map
+as a vector at each device pixel ratio.
 
 ## Run locally
 

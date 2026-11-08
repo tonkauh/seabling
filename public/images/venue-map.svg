@@ -2,8 +2,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 2400 1792">
   <defs>
     <style>
-      .cls-1{fill:#72856f;stroke:#000000;stroke-miterlimit:10}
-      .cls-2{fill:#fbd4c8;stroke:#000000;stroke-miterlimit:10}
+      .cls-1{fill:#72856f;stroke:#000000;stroke-miterlimit:10;vector-effect:non-scaling-stroke;shape-rendering:geometricPrecision}
+      .cls-2{fill:#fbd4c8;stroke:#000000;stroke-miterlimit:10;vector-effect:non-scaling-stroke;shape-rendering:geometricPrecision}
     </style>
   </defs>
   <title>Untitled-4</title>
