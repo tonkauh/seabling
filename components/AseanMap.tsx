@@ -136,6 +136,7 @@ const VectorPaths = memo(function VectorPaths({
           strokeMiterlimit={path.strokeMiterlimit ?? undefined}
           vectorEffect="non-scaling-stroke"
           shapeRendering="geometricPrecision"
+          textRendering="optimizeLegibility"
         />
       ))}
     </g>
@@ -172,6 +173,7 @@ function getPinPosition(
 }
 
 function ZonePin({
+  buttonRef,
   zone,
   number,
   selected,
@@ -182,6 +184,7 @@ function ZonePin({
   zoom,
   transform,
 }: {
+  buttonRef: (element: HTMLButtonElement | null) => void;
   zone: VenueZone;
   number: string;
   selected: boolean;
@@ -197,6 +200,7 @@ function ZonePin({
 
   return (
     <button
+      ref={buttonRef}
       type="button"
       className={`map-pin map-pin--${zone.labelPlacement} map-pin--${zone.id}${selected ? " map-pin--selected" : ""}`}
       style={{
@@ -204,7 +208,7 @@ function ZonePin({
         top: `${y}px`,
         zIndex: transform.zIndex + 1,
         opacity: transform.opacity,
-        transform: `translate(-50%, -50%) scale(${zoom * transform.scale}) rotate(${transform.rotation}deg)`,
+        transform: `translate3d(-50%, -50%, 0) scale(${zoom * transform.scale}) rotate(${transform.rotation}deg)`,
         transformOrigin: "center",
       }}
       onClick={onSelect}
@@ -241,30 +245,21 @@ export default function AseanMap({
   onZoneSelect: (zoneId: string) => void;
 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const pinElementsRef = useRef(new Map<string, HTMLButtonElement>());
   const pointerPositions = useRef(new Map<number, Point>());
   const [artwork, setArtwork] = useState<SvgArtwork | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [viewportSize, setViewportSize] = useState<Point>({ x: 0, y: 0 });
-  const [camera, setCamera] = useState<Camera>({
+  const cameraRef = useRef<Camera>({
     zoom: MIN_ZOOM,
     centerX: 1200,
     centerY: 896,
   });
-  const cameraRef = useRef(camera);
   const cameraFrameRef = useRef<number | null>(null);
   const [mapTransform, setMapTransform] = useState<VenueMapTransform>({
     ...venueMapTransform,
   });
-
-  const updateCamera = useCallback((update: (current: Camera) => Camera) => {
-    cameraRef.current = update(cameraRef.current);
-    if (cameraFrameRef.current !== null) return;
-
-    cameraFrameRef.current = requestAnimationFrame(() => {
-      cameraFrameRef.current = null;
-      setCamera(cameraRef.current);
-    });
-  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -304,28 +299,6 @@ export default function AseanMap({
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (!artwork) return;
-    if (cameraRef.current.zoom !== MIN_ZOOM) return;
-
-    const centeredCamera = {
-      ...cameraRef.current,
-      centerX: artwork.viewBox.x + artwork.viewBox.width / 2,
-      centerY: artwork.viewBox.y + artwork.viewBox.height / 2,
-    };
-    cameraRef.current = centeredCamera;
-    setCamera(centeredCamera);
-  }, [artwork]);
-
-  useEffect(
-    () => () => {
-      if (cameraFrameRef.current !== null) {
-        cancelAnimationFrame(cameraFrameRef.current);
-      }
-    },
-    [],
-  );
-
   const baseViewBox = useMemo((): ViewBox => {
     if (!artwork) return { x: 0, y: 0, width: 2400, height: 1792 };
 
@@ -353,15 +326,103 @@ export default function AseanMap({
     };
   }, [artwork, viewportSize.x, viewportSize.y]);
 
-  const mapViewBox = useMemo(() => {
-    const map = artwork?.viewBox ?? {
-      x: 0,
-      y: 0,
-      width: 2400,
-      height: 1792,
-    };
-    return getCameraViewBox(camera, baseViewBox, map);
-  }, [artwork, baseViewBox, camera]);
+  const map = useMemo(
+    () =>
+      artwork?.viewBox ?? {
+        x: 0,
+        y: 0,
+        width: 2400,
+        height: 1792,
+      },
+    [artwork],
+  );
+  const mapViewBox = getCameraViewBox(
+    cameraRef.current,
+    baseViewBox,
+    map,
+  );
+
+  const renderCamera = useCallback(
+    (nextCamera: Camera) => {
+      const currentMap = artwork?.viewBox ?? {
+        x: 0,
+        y: 0,
+        width: 2400,
+        height: 1792,
+      };
+      const viewBox = getCameraViewBox(nextCamera, baseViewBox, currentMap);
+
+      // Mutate SVG and pins directly so camera frames never reconcile the React tree.
+      svgRef.current?.setAttribute(
+        "viewBox",
+        `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`,
+      );
+
+      if (viewportSize.x <= 0 || viewportSize.y <= 0) return;
+      zones.forEach((zone) => {
+        const element = pinElementsRef.current.get(zone.id);
+        if (!element) return;
+
+        const position = getPinPosition(zone, currentMap, mapTransform);
+        const x = ((position.x - viewBox.x) / viewBox.width) * viewportSize.x;
+        const y = ((position.y - viewBox.y) / viewBox.height) * viewportSize.y;
+        element.style.left = `${x}px`;
+        element.style.top = `${y}px`;
+        element.style.zIndex = String(mapTransform.zIndex + 1);
+        element.style.opacity = String(mapTransform.opacity);
+        element.style.transform = `translate3d(-50%, -50%, 0) scale(${nextCamera.zoom * mapTransform.scale}) rotate(${mapTransform.rotation}deg)`;
+      });
+    },
+    [artwork, baseViewBox, mapTransform, viewportSize.x, viewportSize.y, zones],
+  );
+
+  const scheduleCameraRender = useCallback(() => {
+    if (cameraFrameRef.current !== null) return;
+
+    // Coalesce all wheel and pointer input into one visual update per frame.
+    cameraFrameRef.current = requestAnimationFrame(() => {
+      cameraFrameRef.current = null;
+      renderCamera(cameraRef.current);
+    });
+  }, [renderCamera]);
+
+  const updateCamera = useCallback(
+    (update: (current: Camera) => Camera) => {
+      cameraRef.current = update(cameraRef.current);
+      scheduleCameraRender();
+    },
+    [scheduleCameraRender],
+  );
+
+  useEffect(() => {
+    if (!artwork) return;
+    if (cameraRef.current.zoom === MIN_ZOOM) {
+      cameraRef.current = {
+        ...cameraRef.current,
+        centerX: artwork.viewBox.x + artwork.viewBox.width / 2,
+        centerY: artwork.viewBox.y + artwork.viewBox.height / 2,
+      };
+    }
+    renderCamera(cameraRef.current);
+  }, [artwork, renderCamera]);
+
+  useEffect(() => {
+    cameraRef.current = clampCamera(
+      cameraRef.current,
+      baseViewBox,
+      map,
+    );
+    renderCamera(cameraRef.current);
+  }, [baseViewBox, map, renderCamera]);
+
+  useEffect(
+    () => () => {
+      if (cameraFrameRef.current !== null) {
+        cancelAnimationFrame(cameraFrameRef.current);
+      }
+    },
+    [],
+  );
 
   const zoomAt = useCallback(
     (factor: number, anchor?: Point) => {
@@ -444,7 +505,7 @@ export default function AseanMap({
       pointerPositions.current.set(event.pointerId, current);
       const pointers = Array.from(pointerPositions.current.values());
       const bounds = event.currentTarget.getBoundingClientRect();
-      const map = artwork?.viewBox ?? {
+      const mapBounds = artwork?.viewBox ?? {
         x: 0,
         y: 0,
         width: 2400,
@@ -473,7 +534,7 @@ export default function AseanMap({
         if (oldDistance <= 0) return;
 
         updateCamera((currentCamera) => {
-          const bounded = clampCamera(currentCamera, baseViewBox, map);
+          const bounded = clampCamera(currentCamera, baseViewBox, mapBounds);
           const zoom = Math.min(
             MAX_ZOOM,
             Math.max(MIN_ZOOM, bounded.zoom * (newDistance / oldDistance)),
@@ -481,7 +542,7 @@ export default function AseanMap({
           const currentViewBox = getCameraViewBox(
             bounded,
             baseViewBox,
-            map,
+            mapBounds,
           );
           const anchorX =
             currentViewBox.x +
@@ -506,7 +567,7 @@ export default function AseanMap({
                   (viewportSize.y * zoom),
             },
             baseViewBox,
-            map,
+            mapBounds,
           );
         });
         return;
@@ -515,7 +576,7 @@ export default function AseanMap({
       const deltaX = current.x - previous.x;
       const deltaY = current.y - previous.y;
       updateCamera((currentCamera) => {
-        const bounded = clampCamera(currentCamera, baseViewBox, map);
+        const bounded = clampCamera(currentCamera, baseViewBox, mapBounds);
         return clampCamera(
           {
             ...bounded,
@@ -527,7 +588,7 @@ export default function AseanMap({
               (deltaY * baseViewBox.height) / (viewportSize.y * bounded.zoom),
           },
           baseViewBox,
-          map,
+          mapBounds,
         );
       });
     },
@@ -557,25 +618,17 @@ export default function AseanMap({
       width: 2400,
       height: 1792,
     };
-    const resetCamera = {
+    cameraRef.current = {
       zoom: MIN_ZOOM,
       centerX: map.x + map.width / 2,
       centerY: map.y + map.height / 2,
     };
-    cameraRef.current = resetCamera;
-    setCamera(resetCamera);
-  }, [artwork]);
+    scheduleCameraRender();
+  }, [artwork, scheduleCameraRender]);
 
   const resetMapTransform = useCallback(() => {
     setMapTransform({ ...venueMapTransform });
   }, []);
-  const map = artwork?.viewBox ?? {
-    x: 0,
-    y: 0,
-    width: 2400,
-    height: 1792,
-  };
-
   return (
     <section className="map-stage" aria-label="Interactive SEABLING venue map">
       <div
@@ -592,6 +645,7 @@ export default function AseanMap({
         {artwork ? (
           <>
             <svg
+              ref={svgRef}
               className="map-vector-art"
               xmlns="http://www.w3.org/2000/svg"
               viewBox={`${mapViewBox.x} ${mapViewBox.y} ${mapViewBox.width} ${mapViewBox.height}`}
@@ -612,6 +666,10 @@ export default function AseanMap({
               zones.map((zone, index) => (
                 <ZonePin
                   key={zone.id}
+                  buttonRef={(element) => {
+                    if (element) pinElementsRef.current.set(zone.id, element);
+                    else pinElementsRef.current.delete(zone.id);
+                  }}
                   zone={zone}
                   number={String(index + 1).padStart(2, "0")}
                   selected={selectedZoneId === zone.id}
@@ -619,7 +677,7 @@ export default function AseanMap({
                   position={getPinPosition(zone, map, mapTransform)}
                   viewBox={mapViewBox}
                   viewportSize={viewportSize}
-                  zoom={camera.zoom}
+                  zoom={cameraRef.current.zoom}
                   transform={mapTransform}
                 />
               ))}
