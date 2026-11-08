@@ -66,6 +66,14 @@ button {
   cursor: grabbing;
 }
 
+.map-camera-layer {
+  position: absolute;
+  inset: 0;
+  transform: translate3d(0, 0, 0);
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
 .map-vector-art {
   position: absolute;
   inset: 0;
@@ -76,8 +84,6 @@ button {
   image-rendering: auto;
   shape-rendering: geometricPrecision;
   text-rendering: optimizeLegibility;
-  transform: translate3d(0, 0, 0);
-  will-change: transform;
 }
 
 .map-vector-art path {

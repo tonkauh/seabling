@@ -245,6 +245,7 @@ export default function AseanMap({
   onZoneSelect: (zoneId: string) => void;
 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
+  const cameraLayerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const pinElementsRef = useRef(new Map<string, HTMLButtonElement>());
   const pointerPositions = useRef(new Map<number, Point>());
@@ -256,7 +257,10 @@ export default function AseanMap({
     centerX: 1200,
     centerY: 896,
   });
+  const committedCameraRef = useRef(cameraRef.current);
   const cameraFrameRef = useRef<number | null>(null);
+  const cameraRenderPreviewRef = useRef(false);
+  const zoomCommitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mapTransform, setMapTransform] = useState<VenueMapTransform>({
     ...venueMapTransform,
   });
@@ -353,6 +357,8 @@ export default function AseanMap({
       const viewBox = getCameraViewBox(nextCamera, baseViewBox, currentMap);
 
       // Mutate SVG and pins directly so camera frames never reconcile the React tree.
+      committedCameraRef.current = nextCamera;
+      if (cameraLayerRef.current) cameraLayerRef.current.style.transform = "";
       svgRef.current?.setAttribute(
         "viewBox",
         `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`,
@@ -376,20 +382,74 @@ export default function AseanMap({
     [artwork, baseViewBox, mapTransform, viewportSize.x, viewportSize.y, zones],
   );
 
-  const scheduleCameraRender = useCallback(() => {
+  const renderZoomPreview = useCallback(
+    (nextCamera: Camera) => {
+      if (!cameraLayerRef.current || viewportSize.x <= 0 || viewportSize.y <= 0) {
+        return;
+      }
+
+      const currentMap = artwork?.viewBox ?? {
+        x: 0,
+        y: 0,
+        width: 2400,
+        height: 1792,
+      };
+      const committedViewBox = getCameraViewBox(
+        committedCameraRef.current,
+        baseViewBox,
+        currentMap,
+      );
+      const previewViewBox = getCameraViewBox(
+        nextCamera,
+        baseViewBox,
+        currentMap,
+      );
+      const scale = committedViewBox.width / previewViewBox.width;
+      const translateX =
+        ((committedViewBox.x - previewViewBox.x) / previewViewBox.width) *
+        viewportSize.x;
+      const translateY =
+        ((committedViewBox.y - previewViewBox.y) / previewViewBox.height) *
+        viewportSize.y;
+
+      cameraLayerRef.current.style.transformOrigin = "0 0";
+      cameraLayerRef.current.style.transform =
+        `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`;
+    },
+    [artwork, baseViewBox, viewportSize.x, viewportSize.y],
+  );
+
+  const scheduleCameraRender = useCallback((preview = false) => {
+    cameraRenderPreviewRef.current = preview;
     if (cameraFrameRef.current !== null) return;
 
-    // Coalesce all wheel and pointer input into one visual update per frame.
+    // Keep active zoom on the compositor; rebuild the SVG viewBox after zoom settles.
     cameraFrameRef.current = requestAnimationFrame(() => {
       cameraFrameRef.current = null;
-      renderCamera(cameraRef.current);
+      if (cameraRenderPreviewRef.current) renderZoomPreview(cameraRef.current);
+      else renderCamera(cameraRef.current);
     });
-  }, [renderCamera]);
+  }, [renderCamera, renderZoomPreview]);
 
   const updateCamera = useCallback(
-    (update: (current: Camera) => Camera) => {
+    (update: (current: Camera) => Camera, preview = false) => {
       cameraRef.current = update(cameraRef.current);
-      scheduleCameraRender();
+      if (preview) {
+        if (zoomCommitTimerRef.current !== null) {
+          clearTimeout(zoomCommitTimerRef.current);
+        }
+        scheduleCameraRender(true);
+        zoomCommitTimerRef.current = setTimeout(() => {
+          zoomCommitTimerRef.current = null;
+          scheduleCameraRender();
+        }, 120);
+      } else {
+        if (zoomCommitTimerRef.current !== null) {
+          clearTimeout(zoomCommitTimerRef.current);
+          zoomCommitTimerRef.current = null;
+        }
+        scheduleCameraRender();
+      }
     },
     [scheduleCameraRender],
   );
@@ -420,12 +480,15 @@ export default function AseanMap({
       if (cameraFrameRef.current !== null) {
         cancelAnimationFrame(cameraFrameRef.current);
       }
+      if (zoomCommitTimerRef.current !== null) {
+        clearTimeout(zoomCommitTimerRef.current);
+      }
     },
     [],
   );
 
   const zoomAt = useCallback(
-    (factor: number, anchor?: Point) => {
+    (factor: number, anchor?: Point, preview = false) => {
       updateCamera((current) => {
         const bounded = clampCamera(
           current,
@@ -466,7 +529,7 @@ export default function AseanMap({
           baseViewBox,
           artwork?.viewBox ?? { x: 0, y: 0, width: 2400, height: 1792 },
         );
-      });
+      }, preview);
     },
     [artwork, baseViewBox, updateCamera, viewportSize.x, viewportSize.y],
   );
@@ -478,7 +541,7 @@ export default function AseanMap({
       zoomAt(Math.exp(-event.deltaY * 0.0015), {
         x: event.clientX - bounds.left,
         y: event.clientY - bounds.top,
-      });
+      }, true);
     },
     [zoomAt],
   );
@@ -569,7 +632,7 @@ export default function AseanMap({
             baseViewBox,
             mapBounds,
           );
-        });
+        }, true);
         return;
       }
 
@@ -623,6 +686,10 @@ export default function AseanMap({
       centerX: map.x + map.width / 2,
       centerY: map.y + map.height / 2,
     };
+    if (zoomCommitTimerRef.current !== null) {
+      clearTimeout(zoomCommitTimerRef.current);
+      zoomCommitTimerRef.current = null;
+    }
     scheduleCameraRender();
   }, [artwork, scheduleCameraRender]);
 
@@ -643,7 +710,7 @@ export default function AseanMap({
         onPointerCancel={handlePointerUp}
       >
         {artwork ? (
-          <>
+          <div ref={cameraLayerRef} className="map-camera-layer">
             <svg
               ref={svgRef}
               className="map-vector-art"
@@ -681,7 +748,7 @@ export default function AseanMap({
                   transform={mapTransform}
                 />
               ))}
-          </>
+          </div>
         ) : (
           <div
             className="map-vector-status"
