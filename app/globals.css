@@ -53,7 +53,7 @@ button {
   overflow: hidden;
 }
 
-.map-viewport {
+.map-vector-viewport {
   position: absolute !important;
   inset: 0;
   overflow: hidden !important;
@@ -62,36 +62,35 @@ button {
   user-select: none;
 }
 
-.map-viewport:active {
+.map-vector-viewport:active {
   cursor: grabbing;
 }
 
-.map-transform-content {
-  display: block;
-  backface-visibility: hidden;
-  will-change: transform;
-}
-
-.venue-map-art {
-  position: relative;
-  width: max(100vw, 134dvh);
-  max-width: none;
-  aspect-ratio: 2400 / 1792;
-  flex: 0 0 auto;
-  overflow: hidden;
-  box-shadow: 0 22px 40px rgba(49, 69, 47, 0.12);
-  transition:
-    transform 120ms ease-out,
-    opacity 120ms ease-out;
-}
-
-.venue-map-art__image {
+.map-vector-art {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
-  height: auto;
-  image-rendering: auto;
-  pointer-events: none;
-  user-select: none;
+  height: 100%;
+  overflow: hidden;
+  shape-rendering: geometricPrecision;
+  text-rendering: optimizeLegibility;
+}
+
+.map-vector-art path {
+  vector-effect: non-scaling-stroke;
+  shape-rendering: geometricPrecision;
+}
+
+.map-vector-status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: #647064;
+  font-size: 13px;
+  text-align: center;
 }
 
 .map-brand {
@@ -203,6 +202,7 @@ button {
 }
 
 .map-pin {
+  position: absolute;
   z-index: 1;
   display: inline-flex;
   min-width: 36px;
@@ -214,6 +214,11 @@ button {
   background: transparent;
   cursor: pointer;
   outline: none;
+  transition: filter 150ms ease;
+}
+
+.map-pin:hover {
+  filter: brightness(1.05);
 }
 
 .map-pin:focus-visible {

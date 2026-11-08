@@ -1,7 +1,5 @@
 "use client";
 
-import { useControls, useTransformContext } from "react-zoom-pan-pinch";
-
 function ZoomInIcon() {
   return (
     <svg viewBox="0 0 20 20" aria-hidden="true">
@@ -26,27 +24,18 @@ function ResetIcon() {
   );
 }
 
-export default function MapControls() {
-  const { zoomIn, zoomOut, setTransform } = useControls();
-  const transformContext = useTransformContext();
-
-  function resetMapView() {
-    const { wrapperComponent, contentComponent } = transformContext;
-    if (!wrapperComponent || !contentComponent) return;
-
-    const positionX =
-      (wrapperComponent.clientWidth - contentComponent.offsetWidth) / 2;
-    const positionY =
-      (wrapperComponent.clientHeight - contentComponent.offsetHeight) / 2;
-
-    void setTransform(positionX, positionY, 1);
-  }
-
+export default function MapControls({
+  onZoom,
+  onReset,
+}: {
+  onZoom: (factor: number) => void;
+  onReset: () => void;
+}) {
   return (
     <div className="map-controls" role="group" aria-label="Map controls">
       <button
         type="button"
-        onClick={() => void zoomIn()}
+        onClick={() => onZoom(1.2)}
         aria-label="Zoom in"
         title="Zoom in"
         className="transition-colors hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-900"
@@ -55,7 +44,7 @@ export default function MapControls() {
       </button>
       <button
         type="button"
-        onClick={() => void zoomOut()}
+        onClick={() => onZoom(1 / 1.2)}
         aria-label="Zoom out"
         title="Zoom out"
         className="transition-colors hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-900"
@@ -65,7 +54,7 @@ export default function MapControls() {
       <span className="map-controls__divider" aria-hidden="true" />
       <button
         type="button"
-        onClick={resetMapView}
+        onClick={onReset}
         aria-label="Reset map view"
         title="Reset map view"
         className="map-controls__reset transition-colors hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-900"

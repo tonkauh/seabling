@@ -23,9 +23,13 @@ import { venueZones } from "@/data/venueZones";
 />;
 ```
 
-SVG strokes use `vector-effect: non-scaling-stroke`, and the source viewBox
-matches its intrinsic `2400 × 1792` dimensions so the browser can render the map
-as a vector at each device pixel ratio.
+The map asset is parsed into inline SVG paths at runtime. Pan and zoom update the
+SVG `viewBox` directly rather than scaling a rasterized image or CSS-transformed
+layer, preserving vector sharpness across device pixel ratios. SVG strokes use
+`vector-effect: non-scaling-stroke`, and the source `viewBox` is `2400 × 1792`.
+Drag to pan, use the mouse wheel or pinch to zoom, or use the on-screen controls.
+The map asset is fetched from `public/images/venue-map.svg` and only its SVG
+`viewBox` and path geometry/style attributes are used to create the inline SVG.
 
 ## Run locally
 
