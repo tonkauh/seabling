@@ -4,6 +4,10 @@ A Next.js application with an interactive Southeast Asia map and a 3D GLB model
 viewer. The viewer supports orbit, zoom, pan, lighting, shadows, auto-centering,
 and live position, rotation, and scale controls.
 
+The map uses the vector site plan at `public/images/venue-map.svg`. Replace that
+file to update the map artwork while keeping the existing zone markers and
+interactions.
+
 ## Run locally
 
 ```bash

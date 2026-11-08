@@ -89,10 +89,11 @@ export default function AseanMap({
         >
           <div className="venue-map-art">
             <Image
-              src="/images/map-base.png"
-              alt="Illustrated bird's-eye view of the SEABLING festival grounds, with a central building, entrance stairs, and corner watchtowers"
+              src="/images/venue-map.svg"
+              alt="Vector site plan of the SEABLING festival grounds, showing the central venue and surrounding areas"
               fill
               priority
+              unoptimized
               sizes="(max-width: 760px) 100vw, 134vh"
               className="venue-map-art__image"
               draggable={false}

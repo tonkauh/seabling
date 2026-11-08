@@ -75,7 +75,7 @@ button {
 .venue-map-art {
   position: relative;
   width: max(100vw, 134dvh);
-  aspect-ratio: 1029 / 768;
+  aspect-ratio: 2400 / 1792;
   flex: 0 0 auto;
   overflow: hidden;
   box-shadow: 0 22px 40px rgba(49, 69, 47, 0.12);
