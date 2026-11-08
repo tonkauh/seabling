@@ -12,10 +12,8 @@ import type {
   PointerEvent as ReactPointerEvent,
   WheelEvent as ReactWheelEvent,
 } from "react";
-import type { VenueMapTransform, VenueZone } from "@/data/venueZones";
-import { venueMapTransform } from "@/data/venueZones";
+import type { VenueZone } from "@/data/venueZones";
 import MapControls from "@/components/MapControls";
-import MapTransformPanel from "@/components/MapTransformPanel";
 
 const MAP_URL = "/images/venue-map.svg";
 const MIN_ZOOM = 1;
@@ -112,20 +110,11 @@ function getCameraViewBox(camera: Camera, base: ViewBox, map: ViewBox): ViewBox 
 
 const VectorPaths = memo(function VectorPaths({
   artwork,
-  mapTransform,
 }: {
   artwork: SvgArtwork;
-  mapTransform: VenueMapTransform;
 }) {
-  const centerX = artwork.viewBox.x + artwork.viewBox.width / 2;
-  const centerY = artwork.viewBox.y + artwork.viewBox.height / 2;
-  const offsetX = (mapTransform.offsetXPercent / 100) * artwork.viewBox.width;
-  const offsetY = (mapTransform.offsetYPercent / 100) * artwork.viewBox.height;
-
   return (
-    <g
-      transform={`translate(${centerX + offsetX} ${centerY + offsetY}) rotate(${mapTransform.rotation}) scale(${mapTransform.scale}) translate(${-centerX} ${-centerY})`}
-    >
+    <>
       {artwork.paths.map((path, index) => (
         <path
           key={index}
@@ -139,36 +128,14 @@ const VectorPaths = memo(function VectorPaths({
           textRendering="optimizeLegibility"
         />
       ))}
-    </g>
+    </>
   );
 });
 
-function getPinPosition(
-  zone: VenueZone,
-  map: ViewBox,
-  transform: VenueMapTransform,
-) {
-  const centerX = map.x + map.width / 2;
-  const centerY = map.y + map.height / 2;
-  const originalX = map.x + (zone.position.left / 100) * map.width;
-  const originalY = map.y + (zone.position.top / 100) * map.height;
-  const radians = (transform.rotation * Math.PI) / 180;
-  const rotatedX =
-    (originalX - centerX) * Math.cos(radians) -
-    (originalY - centerY) * Math.sin(radians);
-  const rotatedY =
-    (originalX - centerX) * Math.sin(radians) +
-    (originalY - centerY) * Math.cos(radians);
-
+function getPinPosition(zone: VenueZone, map: ViewBox) {
   return {
-    x:
-      centerX +
-      (transform.offsetXPercent / 100) * map.width +
-      rotatedX * transform.scale,
-    y:
-      centerY +
-      (transform.offsetYPercent / 100) * map.height +
-      rotatedY * transform.scale,
+    x: map.x + (zone.position.left / 100) * map.width,
+    y: map.y + (zone.position.top / 100) * map.height,
   };
 }
 
@@ -182,7 +149,6 @@ function ZonePin({
   viewBox,
   viewportSize,
   zoom,
-  transform,
 }: {
   buttonRef: (element: HTMLButtonElement | null) => void;
   zone: VenueZone;
@@ -193,7 +159,6 @@ function ZonePin({
   viewBox: ViewBox;
   viewportSize: Point;
   zoom: number;
-  transform: VenueMapTransform;
 }) {
   const x = ((position.x - viewBox.x) / viewBox.width) * viewportSize.x;
   const y = ((position.y - viewBox.y) / viewBox.height) * viewportSize.y;
@@ -206,9 +171,7 @@ function ZonePin({
       style={{
         left: `${x}px`,
         top: `${y}px`,
-        zIndex: transform.zIndex + 1,
-        opacity: transform.opacity,
-        transform: `translate3d(-50%, -50%, 0) scale(${zoom * transform.scale}) rotate(${transform.rotation}deg)`,
+        transform: `translate3d(-50%, -50%, 0) scale(${zoom})`,
         transformOrigin: "center",
       }}
       onClick={onSelect}
@@ -261,9 +224,6 @@ export default function AseanMap({
   const cameraFrameRef = useRef<number | null>(null);
   const cameraRenderPreviewRef = useRef(false);
   const zoomCommitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [mapTransform, setMapTransform] = useState<VenueMapTransform>({
-    ...venueMapTransform,
-  });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -369,17 +329,15 @@ export default function AseanMap({
         const element = pinElementsRef.current.get(zone.id);
         if (!element) return;
 
-        const position = getPinPosition(zone, currentMap, mapTransform);
+        const position = getPinPosition(zone, currentMap);
         const x = ((position.x - viewBox.x) / viewBox.width) * viewportSize.x;
         const y = ((position.y - viewBox.y) / viewBox.height) * viewportSize.y;
         element.style.left = `${x}px`;
         element.style.top = `${y}px`;
-        element.style.zIndex = String(mapTransform.zIndex + 1);
-        element.style.opacity = String(mapTransform.opacity);
-        element.style.transform = `translate3d(-50%, -50%, 0) scale(${nextCamera.zoom * mapTransform.scale}) rotate(${mapTransform.rotation}deg)`;
+        element.style.transform = `translate3d(-50%, -50%, 0) scale(${nextCamera.zoom})`;
       });
     },
-    [artwork, baseViewBox, mapTransform, viewportSize.x, viewportSize.y, zones],
+    [artwork, baseViewBox, viewportSize.x, viewportSize.y, zones],
   );
 
   const renderZoomPreview = useCallback(
@@ -693,9 +651,6 @@ export default function AseanMap({
     scheduleCameraRender();
   }, [artwork, scheduleCameraRender]);
 
-  const resetMapTransform = useCallback(() => {
-    setMapTransform({ ...venueMapTransform });
-  }, []);
   return (
     <section className="map-stage" aria-label="Interactive SEABLING venue map">
       <div
@@ -721,12 +676,8 @@ export default function AseanMap({
               textRendering="optimizeLegibility"
               role="img"
               aria-label="Vector site plan of the SEABLING festival grounds"
-              style={{
-                opacity: mapTransform.opacity,
-                zIndex: mapTransform.zIndex,
-              }}
             >
-              <VectorPaths artwork={artwork} mapTransform={mapTransform} />
+              <VectorPaths artwork={artwork} />
             </svg>
             {viewportSize.x > 0 &&
               viewportSize.y > 0 &&
@@ -741,11 +692,10 @@ export default function AseanMap({
                   number={String(index + 1).padStart(2, "0")}
                   selected={selectedZoneId === zone.id}
                   onSelect={() => onZoneSelect(zone.id)}
-                  position={getPinPosition(zone, map, mapTransform)}
+                  position={getPinPosition(zone, map)}
                   viewBox={mapViewBox}
                   viewportSize={viewportSize}
                   zoom={cameraRef.current.zoom}
-                  transform={mapTransform}
                 />
               ))}
           </div>
@@ -759,11 +709,6 @@ export default function AseanMap({
         )}
       </div>
       <MapControls onZoom={zoomAt} onReset={resetCamera} />
-      <MapTransformPanel
-        value={mapTransform}
-        onChange={setMapTransform}
-        onReset={resetMapTransform}
-      />
     </section>
   );
 }
