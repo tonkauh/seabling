@@ -212,6 +212,7 @@ export default function AseanMap({
   const svgRef = useRef<SVGSVGElement>(null);
   const pinElementsRef = useRef(new Map<string, HTMLButtonElement>());
   const pointerPositions = useRef(new Map<number, Point>());
+  const interactivePointers = useRef(new Set<number>());
   const [artwork, setArtwork] = useState<SvgArtwork | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [viewportSize, setViewportSize] = useState<Point>({ x: 0, y: 0 });
@@ -506,8 +507,13 @@ export default function AseanMap({
 
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
-      if ((event.target as HTMLElement).closest("button")) return;
-      event.currentTarget.setPointerCapture(event.pointerId);
+      const startedOnButton = Boolean(
+        (event.target as HTMLElement).closest("button"),
+      );
+      if (startedOnButton) interactivePointers.current.add(event.pointerId);
+      else event.currentTarget.setPointerCapture(event.pointerId);
+
+      // Include pointers on pins in pinch gestures without making pin taps pan the map.
       pointerPositions.current.set(event.pointerId, {
         x: event.clientX,
         y: event.clientY,
@@ -594,6 +600,8 @@ export default function AseanMap({
         return;
       }
 
+      if (interactivePointers.current.has(event.pointerId)) return;
+
       const deltaX = current.x - previous.x;
       const deltaY = current.y - previous.y;
       updateCamera((currentCamera) => {
@@ -625,6 +633,7 @@ export default function AseanMap({
   const handlePointerUp = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       pointerPositions.current.delete(event.pointerId);
+      interactivePointers.current.delete(event.pointerId);
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
